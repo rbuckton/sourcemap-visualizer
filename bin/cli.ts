@@ -84,9 +84,9 @@ function printHeader(): void {
 
 function printUsage(message?: string): number {
   printHeader();
-  process.stdout.write("Usage: " + pkg.name + " [options] <generated_file | map_file>" + os.EOL);
+  process.stdout.write("Usage: sourcemap [options] <generated_file | map_file>" + os.EOL);
   process.stdout.write(os.EOL);
-  process.stdout.write("Examples: " + pkg.name + " generated.js --out generated.html" + os.EOL);
+  process.stdout.write("Examples: sourcemap generated.js --out generated.html" + os.EOL);
   process.stdout.write(os.EOL);  
   process.stdout.write("Options:" + os.EOL);
   process.stdout.write(" -v, --version  Prints the version." + os.EOL);
