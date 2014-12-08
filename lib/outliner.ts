@@ -12,12 +12,7 @@ import TextWriter = textwriter.TextWriter;
 
 var moduleUri = uri.create(module.filename);
 
-export enum OutlineKind {
-  Mappings,
-  Scopes
-}
-
-export function outline(outFile: string, generatedFile: string, mapFile: string, sourceMap: SourceMap, kind: OutlineKind = OutlineKind.Mappings): void {  
+export function outline(outFile: string, generatedFile: string, mapFile: string, sourceMap: SourceMap): void {  
   var rootUri = uri.create(process.cwd() + "/");  
   rootUri = uri.create(rootUri, mapFile);
   if (sourceMap.sourceRoot) {

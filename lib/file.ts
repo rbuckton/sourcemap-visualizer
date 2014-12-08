@@ -1,29 +1,53 @@
 import fs = require('fs');
-export function readFile(fileName: string, encoding?: string): string {
-    if (!fs.existsSync(fileName)) {
-        return undefined;
-    }
-    var buffer = fs.readFileSync(fileName);
-    var len = buffer.length;
-    if (len >= 2 && buffer[0] === 0xFE && buffer[1] === 0xFF) {
-        // Big endian UTF-16 byte order mark detected. Since big endian is not supported by node.js,
-        // flip all byte pairs and treat as little endian.
-        len &= ~1;
-        for (var i = 0; i < len; i += 2) {
-            var temp = buffer[i];
-            buffer[i] = buffer[i + 1];
-            buffer[i + 1] = temp;
+import url = require('url');
+import path = require('path');
+
+function getEncoding(buffer: Buffer): string {
+    if (buffer.length >= 2) {
+        var bom0 = buffer[0];
+        var bom1 = buffer[1];
+        if (bom0 === 0xfe && bom1 === 0xff) {
+            return "utf16be";
         }
-        return buffer.toString("utf16le", 2);
+        else if (bom0 === 0xff && bom1 === 0xfe) {
+            return "utf16le";
+        }
+        else if (buffer.length >= 3 && bom0 === 0xef && bom1 === 0xbb && buffer[2] === 0xbf) {
+            return "utf8";
+        }
     }
-    if (len >= 2 && buffer[0] === 0xFF && buffer[1] === 0xFE) {
-        // Little endian UTF-16 byte order mark detected
-        return buffer.toString("utf16le", 2);
+
+    return "";
+}
+
+export function readFile(fileName: string, encoding?: string): string {
+    var buffer = fs.readFileSync(fileName);
+    var encoding = getEncoding(buffer);
+    switch (encoding) {
+        case "utf16be":
+            for (var i = 0; i < buffer.length; i += 2) {
+                var b = buffer[i];
+                buffer[i] = buffer[i + 1];
+                buffer[i + 1] = b;
+            }
+
+        case "utf16le":
+            return buffer.toString("utf16le", 2);
+        case "utf8":
+            return buffer.toString("utf8", 3);
+        default:
+            return buffer.toString("utf8");
     }
-    if (len >= 3 && buffer[0] === 0xEF && buffer[1] === 0xBB && buffer[2] === 0xBF) {
-        // UTF-8 byte order mark detected
-        return buffer.toString("utf8", 3);
+}
+
+export function resolvePath(pathOrUri: string, from?: string): string {
+    if (pathOrUri) {
+        if (/^file:\/\/\//.test(pathOrUri)) {
+            pathOrUri = url.parse(pathOrUri).path;
+        }
+        if (from) {
+            return path.resolve(from, pathOrUri);
+        }
     }
-    // Default is UTF-8 with no byte order mark
-    return buffer.toString("utf8");
+    return pathOrUri;
 }

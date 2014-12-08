@@ -1,4 +1,6 @@
-import uri = require('./uri');
+import url = require('url');
+import path = require('path');
+import file = require('./file');
 import vlq = require('./vlq');
 
 export interface SourceMap {
@@ -46,7 +48,7 @@ export interface LocalMapping {
 }
 
 export function decode(sourceMap: SourceMap): LineMapping[] {
-  var sourceRoot = sourceMap.sourceRoot && uri.create(sourceMap.sourceRoot);
+  var sourceRoot = file.resolvePath(sourceMap.sourceRoot);
   var mappings: LineMapping[] = [];
   var generatedLine: number;
   var sourceIndex: number = 0;
@@ -68,21 +70,18 @@ export function decode(sourceMap: SourceMap): LineMapping[] {
       if (decodedSegment.length >= 1) {
         generatedColumn += decodedSegment[0];        
       }
+      
       if (decodedSegment.length >= 4) {        
         sourceIndex += decodedSegment[1];
         sourceLine += decodedSegment[2];
         sourceColumn += decodedSegment[3];
       }
+
       if (decodedSegment.length >= 5) {
         scopeNameIndex += decodedSegment[4];
       }
 
-      var sourceUri = uri.create(sourceMap.sources[sourceIndex]);
-      if (sourceRoot) {
-        sourceUri = uri.create(sourceRoot, sourceUri);
-      }
-      
-      source = sourceUri.toString();
+      source = file.resolvePath(sourceMap.sources[sourceIndex], sourceRoot);
       scopeName = sourceMap.names[scopeNameIndex];
       mappings.push({
         id: mappings.length,

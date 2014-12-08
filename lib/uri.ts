@@ -176,12 +176,6 @@ export class Uri {
      * Gets a value indicating whether the `Uri` is an absolute URI.
      */
     public get isAbsolute(): boolean {
-        // the following supports backwards compatibility with F12's odd handling of file:// protocols, where it allows "file://..\path" and
-        // "file://.\path", and treats those and "file:///..\path" as relative URLs.
-        if (this._scheme === Uri.UriSchemeFile && typeof this._pathname === "string" && /^[\\/]?\.{1,2}([\\/]|$)/.test(this._pathname)) {
-            return false;
-        }
-
         return !!this._scheme;
     }
 

@@ -45,7 +45,7 @@ var packageSources = [
 var cliFile = "bin/cli.js";
 var runtimeFile = "bin/runtime.js";
 
-tsc(cliFile, sourcemapSources, { target: "ES5", sourceMap: true, module: "commonjs" });
+tsc(cliFile, sourcemapSources, { target: "ES5", sourceMap: true, module: "commonjs", sourceRoot: __dirname, mapRoot: __dirname });
 tsc(runtimeFile, runtimeSources, { target: "ES5" });
 
 packageTask("sourcemap", "v0.0.1", function() {
@@ -68,6 +68,25 @@ task("clean-runtime", function() {
 task("local", ["cli", "runtime"]);
 task("clean", ["clean-cli", "clean-runtime"]);
 task("default", ["local"]);
+
+task("selftest", ["local"], function() {
+  var cmd = [host, cliFile, cliFile].join(" ");
+  console.log(cmd + "\n");
+    var ex = jake.createExec([cmd]);
+      ex.addListener("stdout", function(output) {
+          process.stdout.write(output);
+      });
+      ex.addListener("stderr", function(error) {
+          process.stderr.write(error);
+      });
+      ex.addListener("cmdEnd", function() {
+          complete();
+      });
+      ex.addListener("error", function() {
+          console.log("Self test failed.");
+      });
+      ex.run();
+}, { async: true });
 
 function tsc(outFile, sources, options) {
   file(outFile, sources, function() {
