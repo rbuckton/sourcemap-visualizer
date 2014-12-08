@@ -386,18 +386,20 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
         .indent();
 
     for (var generatedLine = 0; generatedLine < generatedLines.length; generatedLine++) {
-      writer
-        .write('<div class="line">')
-          .write('<span class="linenum">${line}: </span>', { line: pad(String(generatedLine + 1), generatedPadSize) });
-
       var mappingsForLine = lineMappings.filter(mapping => mapping.generatedLine === generatedLine);
-      mappingsForLine.sort((a, b) => a.generatedColumn - b.generatedColumn);
+      if (mappingsForLine.length) {
+        mappingsForLine.sort((a, b) => a.generatedColumn - b.generatedColumn);
 
-      writer
-        .pipeEach(mappingsForLine, writeLineMapping);
+        writer
+          .write('<div class="line">')
+            .write('<span class="linenum">${line}: </span>', { line: pad(String(generatedLine + 1), generatedPadSize) });
 
-      writer
-        .writeln('</div>');
+        writer
+          .pipeEach(mappingsForLine, writeLineMapping);
+
+        writer
+          .writeln('</div>');
+      }
     }
   }
 
@@ -406,9 +408,9 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
       .write('<span data-mapping="${id}" data-source="${sourceIndex}" class="mapping linecolor${color}">${generatedColumn}->${sourceIndex}:${sourceLine},${sourceColumn}</span>', {
         sourceIndex: lineMapping.sourceIndex,
         id: lineMapping.id,
-        generatedColumn: lineMapping.generatedColumn,
-        sourceLine: lineMapping.sourceLine,
-        sourceColumn: lineMapping.sourceColumn,
+        generatedColumn: lineMapping.generatedColumn + 1,
+        sourceLine: lineMapping.sourceLine + 1,
+        sourceColumn: lineMapping.sourceColumn + 1,
         color: lineMapping.generatedLine % 6
       });
   }
