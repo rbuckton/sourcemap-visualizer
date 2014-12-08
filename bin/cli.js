@@ -88,7 +88,7 @@ function processSourceMap(sourceMapFile, generatedFile, outFile) {
     printHeader();
     var sourceMapContent = file.readFile(sourceMapFile);
     var sourceMap = JSON.parse(sourceMapContent);
-    outliner.outline(outFile, sourceMapFile, generatedFile, sourceMap);
+    outliner.outline(outFile, generatedFile, sourceMapFile, sourceMap);
     process.stdout.write(os.EOL);
     process.stdout.write("source map: " + sourceMapFile + os.EOL);
     process.stdout.write("generated:  " + generatedFile + os.EOL);
