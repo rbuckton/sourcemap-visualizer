@@ -1,6 +1,6 @@
 import fs = require('fs');
+import path = require('path');
 import file = require('./file');
-import uri = require('./uri');
 import textwriter = require('./textwriter');
 import decoder = require('./decoder');
 
@@ -10,13 +10,10 @@ import Scope = decoder.Scope;
 import LocalMapping = decoder.LocalMapping;
 import TextWriter = textwriter.TextWriter;
 
-var moduleUri = uri.create(module.filename);
-
 export function outline(outFile: string, generatedFile: string, mapFile: string, sourceMap: SourceMap): void {  
-  var rootUri = uri.create(process.cwd() + "/");  
-  rootUri = uri.create(rootUri, mapFile);
+  var pathRoot = path.dirname(path.resolve(mapFile));
   if (sourceMap.sourceRoot) {
-    rootUri = uri.create(rootUri, sourceMap.sourceRoot);
+    pathRoot = path.resolve(pathRoot, sourceMap.sourceRoot);
   }
 
   var lineMappings = decoder.decode(sourceMap);
@@ -65,19 +62,21 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
   }
 
   function writeHeader(writer: TextWriter): void {    
-    var styleUri = uri.create(moduleUri, '../res/runtime.css');
+    var stylePath = path.resolve(__dirname, "../res/runtime.css");
     writer
       .writeln('<head>')
         .indent()
         .writeln('<style>')
-        .writeln(file.readFile(styleUri.localPath))
+          .suspendIndenting()
+          .writeln(file.readFile(stylePath))
+          .resumeIndenting()
         .writeln('</style>')
         .dedent()
     .writeln('</head>');
   }
 
   function writeBody(writer: TextWriter): void {
-    var scriptUri = uri.create(moduleUri, '../bin/runtime.js');
+    var scriptPath = path.resolve(__dirname, "../bin/runtime.js");
     writer
       .writeln('<body>')
         .indent()
@@ -101,7 +100,7 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
           .writeln('var lineMappings = ${lineMappings};', { lineMappings: JSON.stringify(lineMappings) })
           .writeln('var generatedLineCount = ${generatedLineCount};', { generatedLineCount: JSON.stringify(generatedLineCount) })
           .writeln('var sourceLineCounts = ${sourceLineCounts};', { sourceLineCounts: JSON.stringify(sourceLineCounts) })
-          .writeln(file.readFile(scriptUri.localPath))
+          .writeln(file.readFile(scriptPath))
           .dedent()
         .writeln('</script>')
         .dedent()
@@ -136,14 +135,14 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
   }
 
   function writeSourceOption(writer: TextWriter, source: string, sourceIndex: number): void {
-    var sourceUri = uri.create(rootUri, source);
+    var sourcePath = path.resolve(pathRoot, source);
     writer
-      .writeln('<option value="${sourceIndex}">${source}</option>', { sourceIndex: sourceIndex, source: sourceUri.toString() });
+      .writeln('<option value="${sourceIndex}">${source}</option>', { sourceIndex: sourceIndex, source: sourcePath });
   }
 
   function writeSource(writer: TextWriter, source: string, sourceIndex: number): void {
-    var sourceUri = uri.create(rootUri, source);
-    var sourceText = file.readFile(sourceUri.localPath);
+    var sourcePath = path.resolve(pathRoot, source);
+    var sourceText = file.readFile(sourcePath);
     var sourceLines = sourceText.split(/\r\n|\r|\n/g);
     var sourceLineText = sourceLines[sourceLine];
     var lastLineMapping: decoder.LineMapping;
@@ -225,7 +224,7 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
 
   function writeGeneratedName(writer: TextWriter): void {
     writer
-      .writeln('<div class="generated-name">${generatedFile}</div>', { generatedFile: uri.create(generatedFile).toString() });
+      .writeln('<div class="generated-name">${generatedFile}</div>', { generatedFile: generatedFile });
   }
 
   function writeGenerated(writer: TextWriter): void {
@@ -378,7 +377,7 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
 
   function writeMapName(writer: TextWriter): void {
     writer
-      .writeln("<div class='map-name'>${mapFile}</div>", { mapFile: uri.create(mapFile).toString() });
+      .writeln("<div class='map-name'>${mapFile}</div>", { mapFile: mapFile });
   }
 
   function writeMap(writer: TextWriter): void {

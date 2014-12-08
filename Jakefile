@@ -2,7 +2,6 @@ var fs = require('fs');
 var tscPath = "node_modules/typescript/bin/tsc.js";
 var host = (process.env.host || process.env.SOURCEMAP_HOST || "node");
 var sourcemapModules = [
-  "lib/uri",
   "lib/vlq",
   "lib/textwriter",
   "lib/decoder",
@@ -69,8 +68,10 @@ task("local", ["cli", "runtime"]);
 task("clean", ["clean-cli", "clean-runtime"]);
 task("default", ["local"]);
 
-task("selftest", ["local"], function() {
-  var cmd = [host, cliFile, cliFile].join(" ");
+directory("tmp");
+
+task("selftest", ["local", "tmp"], function() {
+  var cmd = [host, cliFile, cliFile, "-o", "tmp\\cli.js.map.html"].join(" ");
   console.log(cmd + "\n");
     var ex = jake.createExec([cmd]);
       ex.addListener("stdout", function(output) {
