@@ -1,8 +1,10 @@
 /// <reference path="node.d.ts" />
-var fs = require('fs');
-var url = require('url');
-var path = require('path');
-function getEncoding(buffer) {
+import fs = require('fs');
+import url = require('url');
+import path = require('path');
+import os = require('os');
+
+function getEncoding(buffer: Buffer): string {
     if (buffer.length >= 2) {
         var bom0 = buffer[0];
         var bom1 = buffer[1];
@@ -16,9 +18,11 @@ function getEncoding(buffer) {
             return "utf8";
         }
     }
+
     return "";
 }
-function readFile(fileName, encoding) {
+
+export function readFile(fileName: string, encoding?: string): string {
     var buffer = fs.readFileSync(fileName);
     var encoding = getEncoding(buffer);
     switch (encoding) {
@@ -28,6 +32,7 @@ function readFile(fileName, encoding) {
                 buffer[i] = buffer[i + 1];
                 buffer[i + 1] = b;
             }
+
         case "utf16le":
             return buffer.toString("utf16le", 2);
         case "utf8":
@@ -36,17 +41,39 @@ function readFile(fileName, encoding) {
             return buffer.toString("utf8");
     }
 }
-exports.readFile = readFile;
-function resolvePath(pathOrUri, from) {
-    if (pathOrUri) {
-        if (/^file:\/\/\//.test(pathOrUri)) {
-            pathOrUri = url.parse(pathOrUri).path;
-        }
-        if (from) {
-            return path.resolve(from, pathOrUri);
-        }
+
+export function resolve(from: string, to: string) {
+    if (isRooted(to)) {
+        return to;
     }
-    return pathOrUri;
+
+    if (isUrl(from)) {
+        return url.resolve(from, to);
+    }
+    else if (isRooted(from)) {
+        return path.resolve(from, to);
+    }
+    else if (!/[\\/]$/.test(from)) {
+        from += '/';
+    }
+
+    return from + to;
 }
-exports.resolvePath = resolvePath;
-//# sourceMappingURL=C:/Workspaces/SourceMaps/lib/file.js.map
+
+export function absolute(url: string) {
+    if (isRooted(url)) {
+        return url;
+    }
+
+    return path.resolve(url);
+}
+
+export function isUrl(url: string): boolean {
+    return /^[\w\d-_]+:[\\/]{2}/.test(url);
+}
+
+export function isRooted(path: string): boolean {
+    return isUrl(path)
+        || /^[\\/]/.test(path)
+        || (os.platform() === 'win32' && /^[a-z]:[\\/]/i.test(path));
+}

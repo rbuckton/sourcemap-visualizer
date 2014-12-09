@@ -8,7 +8,6 @@ var sourcemapModules = [
   "lib/outliner",
   "lib/file",
   "lib/package",
-  "lib/query",
   "bin/cli",
 ]
 

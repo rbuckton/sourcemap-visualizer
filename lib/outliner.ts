@@ -8,7 +8,7 @@ import decoder = require('./decoder');
 import SourceMap = decoder.SourceMap;
 import LineMapping = decoder.LineMapping;
 import Scope = decoder.Scope;
-import LocalMapping = decoder.LocalMapping;
+import LocalMapping = decoder.Local;
 import TextWriter = textwriter.TextWriter;
 
 export function outline(outFile: string, generatedFile: string, mapFile: string, sourceMap: SourceMap): void {  
@@ -135,14 +135,24 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
     }
 
     function writeSourceOption(writer: TextWriter, source: string, sourceIndex: number): void {
-        var sourcePath = path.resolve(pathRoot, source);
+        if (sourceMap.sourcesContent && sourceIndex < sourceMap.sourcesContent.length) {
+            var sourcePath = source;
+        } else {
+            var sourcePath = path.resolve(pathRoot, source);
+        }
+
         writer
             .writeln('<option value="${sourceIndex}">${source}</option>', { sourceIndex: sourceIndex, source: sourcePath });
     }
 
     function writeSource(writer: TextWriter, source: string, sourceIndex: number): void {
         var sourcePath = path.resolve(pathRoot, source);
-        var sourceText = file.readFile(sourcePath);
+        if (sourceMap.sourcesContent && sourceIndex < sourceMap.sourcesContent.length) {
+            var sourceText = sourceMap.sourcesContent[sourceIndex];
+        } else {
+            var sourceText = file.readFile(sourcePath);
+        }
+
         var sourceLines = sourceText.split(/\r\n|\r|\n/g);
         var sourceLineText = sourceLines[sourceLine];
         var lastLineMapping: decoder.LineMapping;
