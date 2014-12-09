@@ -24,8 +24,7 @@ html,body {
   width: 100%;
 }
 
-.source-pane,.generated-pane,.map-pane {
-  flex: 1;
+.source-pane,.generated-pane,.map-pane,.rawmap-pane {
   display: flex;
   flex-flow: column;
   margin: 10px;
@@ -34,7 +33,12 @@ html,body {
 }
 
 .source-pane,.generated-pane {
+  flex: 1;
   margin-bottom: 5px;
+}
+
+.map-pane,.rawmap-pane {
+  flex: .5;  
 }
 
 .source-pane {
@@ -50,9 +54,15 @@ html,body {
 .map-pane {
   border: 2px solid #ff7070;
   margin-top: 5px;
+  margin-bottom: 5px;
 }
 
-.source-name,.generated-name,.map-name {
+.rawmap-pane {
+  border: 2px solid #70ff70;
+  margin-top: 5px;
+}
+
+.source-name,.generated-name,.map-name,.rawmap-name {
   height: 20px;
   display: flex;
   align-items: center;
@@ -80,14 +90,18 @@ html,body {
   background-color: #ff7070;
 }
 
-.source-box,.generated-box,.map-box {
+.rawmap-name {
+  background-color: #70ff70;
+}
+
+.source-box,.generated-box,.map-box,.rawmap-box {
   overflow: scroll;
   flex: 1;
   border: 1px solid white;
   border-radius: 1px;
 }
 
-.source,.generated,.line {
+.source,.generated,.line,.rawmap {
   white-space: pre;
 }
 
@@ -117,6 +131,10 @@ html,body {
 .mapping.selected {
   background-color: black;
   color: white;
+}
+
+.gap {
+  background-color: #e9e9e9;
 }
 
 .linecolor0 {

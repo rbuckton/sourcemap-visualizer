@@ -15,13 +15,15 @@ declare var generatedLineCount: number;
 declare var sourceLineCounts: number[];
 
 var sources = document.querySelectorAll("div.source");
-var sourceMappings = document.querySelectorAll("div.source > span.mapping");
-var generatedMappings = document.querySelectorAll("div.generated > span.mapping");
-var mapMappings = document.querySelectorAll("div.map > div.line > span.mapping");
+var sourceMappings = document.querySelectorAll("div.source span.mapping");
+var generatedMappings = document.querySelectorAll("div.generated span.mapping");
+var mapMappings = document.querySelectorAll("div.map span.mapping");
+var rawmapMappings = document.querySelectorAll("div.rawmap span.mapping");
 var sourcepicker = <HTMLSelectElement>document.querySelector("#source");
 var sourceBox = <HTMLDivElement>document.querySelector(".source-box");
 var generatedBox = <HTMLDivElement>document.querySelector(".generated-box");
 var mapBox = <HTMLDivElement>document.querySelector(".map-box");
+var rawmapBox = <HTMLDivElement>document.querySelector(".rawmap-box");
 
 var sourceFileMap = new Map<string, HTMLElement>();
 for (var i = 0; i < sources.length; i++) {
@@ -32,7 +34,11 @@ for (var i = 0; i < sources.length; i++) {
 var sourceMappingIdMap = new Map<string, HTMLElement>();
 for (var i = 0; i < sourceMappings.length; i++) {
   var sourceMapping = <HTMLElement>sourceMappings[i];
-  sourceMappingIdMap.set(sourceMapping.getAttribute("data-mapping"), sourceMapping);
+  var mappingIds = sourceMapping.getAttribute("data-mapping").split(" ");
+  mappingIds.forEach(mappingId => 
+  {
+    sourceMappingIdMap.set(mappingId, sourceMapping);
+  });
 }
 
 var generatedMappingIdMap = new Map<string, HTMLElement>();
@@ -47,6 +53,12 @@ for (var i = 0; i < mapMappings.length; i++) {
   mapMappingIdMap.set(mapMapping.getAttribute("data-mapping"), mapMapping);
 }
 
+var rawmapMappingIdMap = new Map<string, HTMLElement>();
+for (var i = 0; i < rawmapMappings.length; i++) {
+  var rawmapMapping = <HTMLElement>rawmapMappings[i];
+  rawmapMappingIdMap.set(rawmapMapping.getAttribute("data-mapping"), rawmapMapping);
+}
+
 var lineMappingMap = new Map<string, LineMapping>();
 for (var i = 0; i < lineMappings.length; i++) {
   lineMappingMap.set(String(lineMappings[i].id), lineMappings[i]);
@@ -58,16 +70,42 @@ if (sourcepicker) {
   });
 }
 
-var currentGeneratedMapping: HTMLElement;
-var currentSourceMapping: HTMLElement;
-var currentMapMapping: HTMLElement;
+function forEachAncestor<T>(element: HTMLElement, callback: (element: HTMLElement) => T): T {
+  for (var ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+    var result = callback(ancestor);
+    if (result) {
+      return result;
+    }
+  }
+}
+
+function forEachChild<T>(element: HTMLElement, callback: (element: HTMLElement) => T): T {
+  for (var child = <HTMLElement>element.firstElementChild; child; child = <HTMLElement>child.nextElementSibling) {
+    var result = callback(child);
+    if (result) {
+      return result;
+    }
+  }
+}
+
+var currentGeneratedMappings: Set<HTMLElement>;
+var currentSourceMappings: Set<HTMLElement>;
+var currentMapMappings: Set<HTMLElement>;
+var currentRawmapMappings: Set<HTMLElement>;
 var currentSource: HTMLElement;
 document.addEventListener("mouseover", e => {
   var element = <HTMLElement>e.target;
   if (element.classList.contains("mapping")) {
-    e.stopImmediatePropagation();
+    var container = getContainer(element);
+
+    // get all mappings with the same offsets
     var id = element.getAttribute("data-mapping");
-    setMapping(id);
+    if (id) {
+      var ids = id.split(" ");
+    }
+
+    e.stopImmediatePropagation();
+    setMappings(ids);
   }
 });
 
@@ -75,7 +113,7 @@ document.addEventListener("mouseout", e => {
   var element = <HTMLElement>e.target;
   if (element.classList.contains("mapping")) {
     e.stopImmediatePropagation();
-    setMapping(undefined);
+    setMappings();
   }
 });
 
@@ -89,16 +127,32 @@ document.addEventListener("click", e => {
     for (var node = element.parentElement; node; node = node.parentElement) {
       if (node.classList.contains("source-box") ||
           node.classList.contains("generated-box") ||
-          node.classList.contains("map-box")) {
+          node.classList.contains("map-box") ||
+          node.classList.contains("rawmap-box")) {
         box = node;
         break;
       }
     }
 
     var id = element.getAttribute("data-mapping");
+    if (id) {
+      id = id.split(' ')[0];
+    }
+
     scrollToMapping(lineMappingMap.get(id), box, 0);
   }
 })
+
+function getContainer(element: HTMLElement): HTMLElement {
+  for (var node = element.parentElement; node; node = node.parentElement) {
+    if (node.classList.contains("source-box") ||
+        node.classList.contains("generated-box") ||
+        node.classList.contains("map-box") ||
+        node.classList.contains("rawmap-box")) {
+      return node;
+    }
+  }
+}
 
 var overMapBox = false;
 var overGeneratedBox = false;
@@ -157,46 +211,67 @@ if (sources.length) {
   (<HTMLElement>sources[0]).classList.add("selected");
 }
 
-function setMapping(mappingId: string): void {
-  if (mappingId) {
-    var lineMapping = lineMappingMap.get(mappingId);
-    if (lineMapping) {
-      var generatedMapping = generatedMappingIdMap.get(mappingId);
-      var mapMapping = mapMappingIdMap.get(mappingId);
-      var sourceMapping = sourceMappingIdMap.get(mappingId);
-      setSource(String(lineMapping.sourceIndex));
+function selectMappings(current: Set<HTMLElement>, requested: Set<HTMLElement>): Set<HTMLElement> {
+  if (current) {
+    current.forEach(currentElement => {
+      if (!requested || !requested.has(currentElement)) {
+        currentElement.classList.remove("selected");
+      }
+    });
+  }
+
+  if (requested) {
+    requested.forEach(requestedElement => {
+      if (!current || !current.has(requestedElement)) {
+        requestedElement.classList.add("selected");
+      }
+    });
+  }
+
+  return requested;
+}
+
+function setMappings(mappingIds?: string[]): void {
+  if (mappingIds && mappingIds.length) {
+    var lineMappings = mappingIds.map(mappingId => lineMappingMap.get(mappingId));
+    if (lineMappings.length) {
+      var generatedMappings = new Set<HTMLElement>();
+      var sourceMappings = new Set<HTMLElement>();
+      var mapMappings = new Set<HTMLElement>();
+      var rawmapMappings = new Set<HTMLElement>();
+      mappingIds.map(mappingId => {
+        var generatedMapping = generatedMappingIdMap.get(mappingId); 
+        if (generatedMapping) {
+          generatedMappings.add(generatedMapping);
+        }
+
+        var sourceMapping = sourceMappingIdMap.get(mappingId); 
+        if (sourceMapping) {
+          sourceMappings.add(sourceMapping);
+        }
+
+        var mapMapping = mapMappingIdMap.get(mappingId);
+        if (mapMapping) {
+          mapMappings.add(mapMapping);
+        }
+
+        var rawmapMapping = rawmapMappingIdMap.get(mappingId);
+        if (rawmapMapping) {
+          rawmapMappings.add(rawmapMapping);
+        }
+      });
+
+      var sourceIndex = lineMappings.reduce((index, mapping) => typeof index !== "undefined" ? index : mapping.sourceIndex, undefined);
+      if (typeof sourceIndex !== "undefined") {
+        setSource(String(sourceIndex));
+      }
     }
   }
 
-  if (generatedMapping !== currentGeneratedMapping) {
-    if (currentGeneratedMapping) {
-      currentGeneratedMapping.classList.remove("selected");
-    }
-    currentGeneratedMapping = generatedMapping;
-    if (currentGeneratedMapping) {
-      currentGeneratedMapping.classList.add("selected");
-    }
-  }
-
-  if (sourceMapping !== currentSourceMapping) {
-    if (currentSourceMapping) {
-      currentSourceMapping.classList.remove("selected");
-    }
-    currentSourceMapping = sourceMapping;
-    if (currentSourceMapping) {
-      currentSourceMapping.classList.add("selected");
-    }
-  }
-
-  if (mapMapping !== currentMapMapping) {
-    if (currentMapMapping) {
-      currentMapMapping.classList.remove("selected");
-    }
-    currentMapMapping = mapMapping;
-    if (currentMapMapping) {
-      currentMapMapping.classList.add("selected");
-    }
-  }
+  currentGeneratedMappings = selectMappings(currentGeneratedMappings, generatedMappings);
+  currentSourceMappings = selectMappings(currentSourceMappings, sourceMappings);
+  currentMapMappings = selectMappings(currentMapMappings, mapMappings);
+  currentRawmapMappings = selectMappings(currentRawmapMappings, rawmapMappings);
 }
 
 function setSource(sourceIndex: string): void {
@@ -222,7 +297,7 @@ function scrollToMapping(lineMapping: LineMapping, target: HTMLElement, partialO
     mapBox.scrollTop = partialOffset + (mapBox.scrollHeight * (lineMapping.generatedLine / generatedLineCount));
   }
 
-  if (target !== sourceBox) {    
+  if (target !== sourceBox && "sourceIndex" in lineMapping) {    
     setSource(String(lineMapping.sourceIndex));
     sourceBox.scrollTop = partialOffset + (sourceBox.scrollHeight * (lineMapping.sourceLine / sourceLineCounts[lineMapping.sourceIndex]));
   }

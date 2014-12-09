@@ -1,3 +1,4 @@
+/// <reference path="node.d.ts" />
 var base64chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 export function encode(buffer: number[]): string {
   var parts: string[] = [];

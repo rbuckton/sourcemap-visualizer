@@ -1,3 +1,4 @@
+/// <reference path="../lib/node.d.ts" />
 import fs = require('fs');
 import os = require('os');
 import path = require('path');

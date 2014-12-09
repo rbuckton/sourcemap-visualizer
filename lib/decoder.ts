@@ -1,3 +1,4 @@
+/// <reference path="node.d.ts" />
 import url = require('url');
 import path = require('path');
 import file = require('./file');
@@ -18,12 +19,12 @@ export interface LineMapping {
   id: number;
   generatedLine: number;
   generatedColumn: number;
-  source: string;
-  sourceIndex: number;
-  sourceLine: number;
-  sourceColumn: number;
-  scopeName: string;
-  scopeNameIndex: number;
+  source?: string;
+  sourceIndex?: number;
+  sourceLine?: number;
+  sourceColumn?: number;
+  scopeName?: string;
+  scopeNameIndex?: number;
 }
 
 export interface Scope {
@@ -68,32 +69,35 @@ export function decode(sourceMap: SourceMap): LineMapping[] {
       var segment = mappingSegments[segmentIndex];
       var decodedSegment = vlq.decode(segment);
       if (decodedSegment.length >= 1) {
-        generatedColumn += decodedSegment[0];        
+        generatedColumn += decodedSegment[0];
+        if (decodedSegment.length >= 4) {
+          sourceIndex += decodedSegment[1];
+          sourceLine += decodedSegment[2];
+          sourceColumn += decodedSegment[3];
+          if (decodedSegment.length >= 5) {
+            scopeNameIndex += decodedSegment[4];
+          }
+          source = file.resolvePath(sourceMap.sources[sourceIndex], sourceRoot);
+          scopeName = sourceMap.names[scopeNameIndex];
+          mappings.push({
+            id: mappings.length,
+            generatedLine: generatedLine,
+            generatedColumn: generatedColumn,
+            source: source,
+            sourceIndex: sourceIndex,
+            sourceLine: sourceLine,
+            sourceColumn: sourceColumn,
+            scopeName: scopeName,
+            scopeNameIndex: scopeNameIndex
+          });
+        } else {
+          mappings.push({
+            id: mappings.length,
+            generatedLine: generatedLine,
+            generatedColumn: generatedColumn
+          });
+        }
       }
-      
-      if (decodedSegment.length >= 4) {        
-        sourceIndex += decodedSegment[1];
-        sourceLine += decodedSegment[2];
-        sourceColumn += decodedSegment[3];
-      }
-
-      if (decodedSegment.length >= 5) {
-        scopeNameIndex += decodedSegment[4];
-      }
-
-      source = file.resolvePath(sourceMap.sources[sourceIndex], sourceRoot);
-      scopeName = sourceMap.names[scopeNameIndex];
-      mappings.push({
-        id: mappings.length,
-        generatedLine: generatedLine,
-        generatedColumn: generatedColumn,
-        source: source,
-        sourceIndex: sourceIndex,
-        sourceLine: sourceLine,
-        sourceColumn: sourceColumn,
-        scopeName: scopeName,
-        scopeNameIndex: scopeNameIndex
-      })
     }
   }
 

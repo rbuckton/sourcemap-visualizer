@@ -95,4 +95,4 @@ function processSourceMap(sourceMapFile, generatedFile, outFile) {
     process.stdout.write("output:     " + outFile + os.EOL);
     return 0;
 }
-//# sourceMappingURL=F:/Workspaces/SourceMaps/bin/cli.js.map
+//# sourceMappingURL=D:/Workspaces/SourceMaps/bin/cli.js.map
