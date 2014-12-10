@@ -1,7 +1,7 @@
 /// <reference path="node.d.ts" />
 import path = require('path');
 import fs = require('fs');
-import utils = require('utils');
+import utils = require('./utils');
 
 interface Package {
 	name: string;
