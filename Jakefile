@@ -46,7 +46,7 @@ var packageSources = [
 var cliFile = "bin/cli.js";
 var runtimeFile = "bin/runtime.js";
 
-tsc(cliFile, sourcemapSources, { target: "ES5", sourceMap: true, module: "commonjs", sourceRoot: __dirname, mapRoot: __dirname });
+tsc(cliFile, sourcemapSources, { target: "ES5", sourceMap: true, module: "commonjs", sourceRoot: __dirname });
 tsc(runtimeFile, runtimeSources, { target: "ES5" });
 
 packageTask("sourcemap", "v0.0.1", function() {
@@ -73,7 +73,7 @@ task("default", ["local"]);
 directory("tmp");
 
 task("selftest", ["local", "tmp"], function() {
-  var cmd = [host, cliFile, cliFile, "-o", "tmp\\cli.js.map.html"].join(" ");
+  var cmd = [host, cliFile, cliFile + ".map", "-o", "tmp\\cli.js.map.html"].join(" ");
   console.log(cmd + "\n");
     var ex = jake.createExec([cmd]);
       ex.addListener("stdout", function(output) {

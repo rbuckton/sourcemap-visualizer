@@ -1,7 +1,6 @@
+/// <reference path="../lib/node.d.ts" />
 var os = require('os');
-var path = require('path');
 var pkg = require('../lib/package');
-var file = require('../lib/file');
 var outliner = require('../lib/outliner');
 process.exit(main());
 function main() {
@@ -13,11 +12,10 @@ function main() {
         return printVersion();
     }
     else {
-        return processSourceMap(parsedArguments.sourceMapFile, parsedArguments.generatedFile, parsedArguments.outFile);
+        return processSourceMap(parsedArguments.sourceMapFile, parsedArguments.outFile);
     }
 }
 function parseArguments() {
-    var generatedFile;
     var sourceMapFile;
     var outFile;
     for (var i = 2; i < process.argv.length; i++) {
@@ -38,27 +36,19 @@ function parseArguments() {
             outFile = process.argv[++i];
         }
         else {
-            if (generatedFile || sourceMapFile) {
+            if (sourceMapFile) {
                 return { printUsage: true, message: "unrecognized argument " + arg + "." };
             }
-            if (path.extname(arg) === ".map") {
-                sourceMapFile = arg;
-                generatedFile = arg.substr(0, arg.length - 4);
-            }
-            else {
-                generatedFile = arg;
-                // NOTE: assumes same directory for now. need to parse out the sourceMappingURL comment for better reliability.
-                sourceMapFile = generatedFile + ".map";
-            }
+            sourceMapFile = arg;
         }
     }
-    if (!generatedFile || !sourceMapFile) {
-        return { printUsage: true, message: "the path to a generated file or source map is required." };
+    if (!sourceMapFile) {
+        return { printUsage: true, message: "the path to a source map is required." };
     }
     if (!outFile) {
         outFile = sourceMapFile + ".html";
     }
-    return { generatedFile: generatedFile, sourceMapFile: sourceMapFile, outFile: outFile };
+    return { sourceMapFile: sourceMapFile, outFile: outFile };
 }
 function printHeader() {
     process.stdout.write(pkg.name + " " + pkg.version + os.EOL);
@@ -81,18 +71,15 @@ function printUsage(message) {
     return 0;
 }
 function printVersion() {
-    process.stdout.write(pkg.version);
+    process.stdout.write(pkg.version + os.EOL);
     return 0;
 }
-function processSourceMap(sourceMapFile, generatedFile, outFile) {
+function processSourceMap(sourceMapFile, outFile) {
     printHeader();
-    var sourceMapContent = file.readFile(sourceMapFile);
-    var sourceMap = JSON.parse(sourceMapContent);
-    outliner.outline(outFile, generatedFile, sourceMapFile, sourceMap);
+    outliner.outline(sourceMapFile, outFile);
     process.stdout.write(os.EOL);
     process.stdout.write("source map: " + sourceMapFile + os.EOL);
-    process.stdout.write("generated:  " + generatedFile + os.EOL);
     process.stdout.write("output:     " + outFile + os.EOL);
     return 0;
 }
-//# sourceMappingURL=C:/Workspaces/SourceMaps/bin/cli.js.map
+//# sourceMappingURL=cli.js.map

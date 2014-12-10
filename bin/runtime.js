@@ -38,7 +38,7 @@ for (var i = 0; i < rawmapMappings.length; i++) {
 }
 var lineMappingMap = new Map();
 for (var i = 0; i < lineMappings.length; i++) {
-    lineMappingMap.set(String(lineMappings[i].id), lineMappings[i]);
+    lineMappingMap.set(String(lineMappings[i].mappingIndex), lineMappings[i]);
 }
 if (sourcepicker) {
     sourcepicker.addEventListener("change", function (e) {
@@ -168,7 +168,7 @@ sourceBox.addEventListener("scroll", function (e) {
     var sourceLineOffset = sourceLineCounts[sourceIndex] * (sourceBox.scrollTop / sourceBox.scrollHeight);
     var sourceLine = Math.floor(sourceLineOffset);
     var partialOffset = sourceLineOffset - sourceLine;
-    var lineMappingsForLine = lineMappings.filter(function (mapping) { return mapping.sourceIndex === sourceIndex && mapping.sourceLine === sourceLine; });
+    var lineMappingsForLine = lineMappings.filter(function (mapping) { return mapping.source && mapping.source.sourceIndex === sourceIndex && mapping.sourceLine === sourceLine; });
     if (lineMappingsForLine.length) {
         var firstLineMapping = lineMappingsForLine.reduce(function (prev, mapping) { return mapping.sourceColumn < prev.sourceColumn ? mapping : prev; });
         if (firstLineMapping) {
@@ -222,7 +222,7 @@ function setMappings(mappingIds) {
                     rawmapMappings.add(rawmapMapping);
                 }
             });
-            var sourceIndex = lineMappings.reduce(function (index, mapping) { return typeof index !== "undefined" ? index : mapping.sourceIndex; }, undefined);
+            var sourceIndex = lineMappings.reduce(function (index, mapping) { return typeof index !== "undefined" ? index : mapping.source && mapping.source.sourceIndex; }, undefined);
             if (typeof sourceIndex !== "undefined") {
                 setSource(String(sourceIndex));
             }
@@ -253,8 +253,8 @@ function scrollToMapping(lineMapping, target, partialOffset) {
     if (target !== mapBox) {
         mapBox.scrollTop = partialOffset + (mapBox.scrollHeight * (lineMapping.generatedLine / generatedLineCount));
     }
-    if (target !== sourceBox && "sourceIndex" in lineMapping) {
-        setSource(String(lineMapping.sourceIndex));
-        sourceBox.scrollTop = partialOffset + (sourceBox.scrollHeight * (lineMapping.sourceLine / sourceLineCounts[lineMapping.sourceIndex]));
+    if (target !== sourceBox && lineMapping.source) {
+        setSource(String(lineMapping.source.sourceIndex));
+        sourceBox.scrollTop = partialOffset + (sourceBox.scrollHeight * (lineMapping.sourceLine / sourceLineCounts[lineMapping.source.sourceIndex]));
     }
 }

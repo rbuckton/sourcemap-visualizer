@@ -1,16 +1,38 @@
-interface LineMapping {
-  id: number;
-  generatedLine: number;
-  generatedColumn: number;
-  source: string;
-  sourceIndex: number;
-  sourceLine: number;
-  sourceColumn: number;
-  scopeName: string;
-  scopeNameIndex: number;
+interface Mapping {
+    mappingIndex: number;
+    sectionIndex: number;
+    sectionMappingIndex: number;
+    generatedLine: number;
+    sectionGeneratedLine: number;
+    generatedColumnOffset: number;
+    generatedColumn: number;
+    sectionGeneratedColumn: number;
+    sourceIndexOffset?: number;
+    source?: Source;
+    sourceLineOffset?: number;
+    sourceLine?: number;
+    sourceColumnOffset?: number;
+    sourceColumn?: number;
+    nameIndexOffset?: number;
+    name?: Name;
 }
 
-declare var lineMappings: LineMapping[];
+interface Source {
+    sourceIndex: number;
+    sectionIndex: number;
+    sectionSourceIndex: number;
+    url: string;
+    mediaType?: string;
+}
+
+interface Name {
+    nameIndex: number;
+    sectionIndex: number;
+    sectionNameIndex: number;
+    text: string;
+}
+
+declare var lineMappings: Mapping[];
 declare var generatedLineCount: number;
 declare var sourceLineCounts: number[];
 
@@ -59,9 +81,9 @@ for (var i = 0; i < rawmapMappings.length; i++) {
   rawmapMappingIdMap.set(rawmapMapping.getAttribute("data-mapping"), rawmapMapping);
 }
 
-var lineMappingMap = new Map<string, LineMapping>();
+var lineMappingMap = new Map<string, Mapping>();
 for (var i = 0; i < lineMappings.length; i++) {
-  lineMappingMap.set(String(lineMappings[i].id), lineMappings[i]);
+  lineMappingMap.set(String(lineMappings[i].mappingIndex), lineMappings[i]);
 }
 
 if (sourcepicker) {
@@ -198,7 +220,7 @@ sourceBox.addEventListener("scroll", e => {
   var sourceLineOffset = sourceLineCounts[sourceIndex] * (sourceBox.scrollTop / sourceBox.scrollHeight);
   var sourceLine = Math.floor(sourceLineOffset);
   var partialOffset = sourceLineOffset - sourceLine;
-  var lineMappingsForLine = lineMappings.filter(mapping => mapping.sourceIndex === sourceIndex && mapping.sourceLine === sourceLine);
+  var lineMappingsForLine = lineMappings.filter(mapping => mapping.source && mapping.source.sourceIndex === sourceIndex && mapping.sourceLine === sourceLine);
   if (lineMappingsForLine.length) {
     var firstLineMapping = lineMappingsForLine.reduce((prev, mapping) => mapping.sourceColumn < prev.sourceColumn ? mapping : prev);
     if (firstLineMapping) {
@@ -261,7 +283,7 @@ function setMappings(mappingIds?: string[]): void {
         }
       });
 
-      var sourceIndex = lineMappings.reduce((index, mapping) => typeof index !== "undefined" ? index : mapping.sourceIndex, undefined);
+      var sourceIndex = lineMappings.reduce<number>((index, mapping) => typeof index !== "undefined" ? index : mapping.source && mapping.source.sourceIndex, undefined);
       if (typeof sourceIndex !== "undefined") {
         setSource(String(sourceIndex));
       }
@@ -288,7 +310,7 @@ function setSource(sourceIndex: string): void {
   }
 }
 
-function scrollToMapping(lineMapping: LineMapping, target: HTMLElement, partialOffset: number): void {
+function scrollToMapping(lineMapping: Mapping, target: HTMLElement, partialOffset: number): void {
   if (target !== generatedBox) {
     generatedBox.scrollTop = partialOffset + (generatedBox.scrollHeight * (lineMapping.generatedLine / generatedLineCount));
   }
@@ -297,8 +319,8 @@ function scrollToMapping(lineMapping: LineMapping, target: HTMLElement, partialO
     mapBox.scrollTop = partialOffset + (mapBox.scrollHeight * (lineMapping.generatedLine / generatedLineCount));
   }
 
-  if (target !== sourceBox && "sourceIndex" in lineMapping) {    
-    setSource(String(lineMapping.sourceIndex));
-    sourceBox.scrollTop = partialOffset + (sourceBox.scrollHeight * (lineMapping.sourceLine / sourceLineCounts[lineMapping.sourceIndex]));
+  if (target !== sourceBox && lineMapping.source) {    
+    setSource(String(lineMapping.source.sourceIndex));
+    sourceBox.scrollTop = partialOffset + (sourceBox.scrollHeight * (lineMapping.sourceLine / sourceLineCounts[lineMapping.source.sourceIndex]));
   }
 }

@@ -10,6 +10,7 @@ export interface TextWriter {
     pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void, separator: string): TextWriter;
     pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void, separator: (writer: TextWriter) => void): TextWriter;
     pipeTo(callback: (writer: TextWriter) => void): TextWriter;
+    pipeTo<T0>(callback: (writer: TextWriter, arg0: T0) => void, arg0: T0): TextWriter;
     suspendIndenting(): TextWriter;
     resumeIndenting(): TextWriter;
     clear(): TextWriter;
@@ -62,8 +63,9 @@ export function create(text?: string): TextWriter {
             newlineRequested = true;
             return this;
         },
-        pipeTo(callback: (writer: TextWriter) => void): TextWriter {
-            callback(this);
+        pipeTo(callback: (writer: TextWriter, ...args: any[]) => void, ...args: any[]): TextWriter {
+            args.unshift(this);
+            callback.apply(undefined, args);
             return this;
         },
         pipeEach: pipeEach,

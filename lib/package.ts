@@ -1,6 +1,7 @@
 /// <reference path="node.d.ts" />
 import path = require('path');
 import fs = require('fs');
+import utils = require('utils');
 
 interface Package {
 	name: string;
@@ -17,7 +18,7 @@ interface Package {
 var pkg: Package;
 try {
 	var jsonPath: string = path.resolve(__dirname, "../package.json");
-	var json: string = fs.readFileSync(jsonPath, "utf8");
+	var json: string = utils.readFile(jsonPath);
 	pkg = <Package>JSON.parse(json);
 } catch (e) {
 	pkg = { name: "", version: "" };

@@ -1,49 +1,49 @@
 /// <reference path="node.d.ts" />
 import fs = require('fs');
 import path = require('path');
-import file = require('./file');
+import utils = require('./utils');
 import textwriter = require('./textwriter');
 import decoder = require('./decoder');
 
 import SourceMap = decoder.SourceMap;
-import LineMapping = decoder.LineMapping;
+import IndexMap = decoder.IndexMap;
+import ParsedSourceMap = decoder.ParsedSourceMap;
+import Source = decoder.Source;
+import Mapping = decoder.Mapping;
+import Name = decoder.Name;
 import Scope = decoder.Scope;
-import LocalMapping = decoder.Local;
+import Local = decoder.Local;
 import TextWriter = textwriter.TextWriter;
 
-export function outline(outFile: string, generatedFile: string, mapFile: string, sourceMap: SourceMap): void {  
-    var pathRoot = path.dirname(path.resolve(mapFile));
-    if (sourceMap.sourceRoot) {
-        pathRoot = path.resolve(pathRoot, sourceMap.sourceRoot);
-    }
-
-    var lineMappings = decoder.decode(sourceMap);
-    var scopes = decoder.decodeScopes(sourceMap);
-    var generatedText = file.readFile(generatedFile);
-    var generatedLines = generatedText.split(/\r\n|\r|\n/g);
+export function outline(mapFile: string, outFile: string): void {
+    var parsedSourceMap = decoder.decode(mapFile);
+    var generatedContent = parsedSourceMap.getGeneratedFileContent();
+    if (!generatedContent) return;
+    var generatedLines = generatedContent.split(/\r\n|\r|\n/g);
     var generatedLineCount = generatedLines.length;
     var generatedPadSize = generatedLines.length.toString().length;
-    var sourceLineCounts: number[] = [];
     var generatedLineColors: number[];
-    var nextMappingId: number;
+    var sourceLineCounts: number[] = [];
+    var nextMappingIndex: number = 0;
 
     return outlineWorker();
 
     function outlineWorker(): void {
-        computeGeneratedLineColors();
+        computeLineColors();
 
         var writer = textwriter.create();
         writer.pipeTo(writeDocument);
         fs.writeFileSync(outFile, writer.toString(), "utf8");
     }
 
-    function computeGeneratedLineColors(): void {
+    function computeLineColors(): void {
         generatedLineColors = [];
+        var mappings = parsedSourceMap.getMappings();
         var nextGeneratedLineColor = 0;
         var lastGeneratedLine = -1;
-        for (var i = 0; i < lineMappings.length; i++) {
-            if (lineMappings[i].generatedLine !== lastGeneratedLine) {
-                lastGeneratedLine = lineMappings[i].generatedLine;
+        for (var i = 0; i < mappings.length; i++) {
+            if (mappings[i].generatedLine !== lastGeneratedLine) {
+                lastGeneratedLine = mappings[i].generatedLine;
                 generatedLineColors[lastGeneratedLine] = nextGeneratedLineColor++ % 6;
             }
         }
@@ -67,7 +67,7 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
                 .indent()
                 .writeln('<style>')
                     .suspendIndenting()
-                    .writeln(file.readFile(stylePath))
+                    .writeln(utils.readFile(stylePath))
                     .resumeIndenting()
                 .writeln('</style>')
                 .dedent()
@@ -97,10 +97,10 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
                 .writeln('</div>')
                 .writeln('<script>')
                     .suspendIndenting()
-                    .writeln('var lineMappings = ${lineMappings};', { lineMappings: JSON.stringify(lineMappings) })
-                    .writeln('var generatedLineCount = ${generatedLineCount};', { generatedLineCount: JSON.stringify(generatedLineCount) })
-                    .writeln('var sourceLineCounts = ${sourceLineCounts};', { sourceLineCounts: JSON.stringify(sourceLineCounts) })
-                    .writeln(file.readFile(scriptPath))
+                    .writeln('var lineMappings = ${lineMappings};', { lineMappings: JSON.stringify(parsedSourceMap.getMappings(), undefined, "  ") })
+                    .writeln('var generatedLineCount = ${generatedLineCount};', { generatedLineCount: JSON.stringify(generatedLineCount, undefined, "  ") })
+                    .writeln('var sourceLineCounts = ${sourceLineCounts};', { sourceLineCounts: JSON.stringify(sourceLineCounts, undefined, "  ") })
+                    .writeln(utils.readFile(scriptPath))
                     .resumeIndenting()
                 .writeln('</script>')
                 .dedent()
@@ -111,57 +111,47 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
         writer
             .writeln('<div class="source-pane">')
                 .indent()
-                .pipeTo(writeSourceName)
+                .pipeTo(writeSourceNames)
                 .writeln('<div class="source-box">')
                     .indent()
-                    .pipeEach(sourceMap.sources, writeSource)
+                    .pipeEach(parsedSourceMap.getSources(), writeSource)
                     .dedent()
                 .writeln('</div>')
                 .dedent()
             .writeln('</div>');
     }
 
-    function writeSourceName(writer: TextWriter): void {
+    function writeSourceNames(writer: TextWriter): void {
         writer
             .writeln('<div class="source-name">')
                 .indent()
                 .writeln('<select id="source">')
                     .indent()
-                    .pipeEach(sourceMap.sources, writeSourceOption)
+                    .pipeEach(parsedSourceMap.getSources(), writeSourceNamesOption)
                     .dedent()
                 .writeln('</select>')
                 .dedent()
             .writeln('</div>');
     }
 
-    function writeSourceOption(writer: TextWriter, source: string, sourceIndex: number): void {
-        if (sourceMap.sourcesContent && sourceIndex < sourceMap.sourcesContent.length) {
-            var sourcePath = source;
-        } else {
-            var sourcePath = path.resolve(pathRoot, source);
-        }
-
+    function writeSourceNamesOption(writer: TextWriter, source: Source): void {
+        var sourcePath = source.url;
+        var sourceIndex = source.sourceIndex;
         writer
-            .writeln('<option value="${sourceIndex}">${source}</option>', { sourceIndex: sourceIndex, source: sourcePath });
+            .writeln('<option value="${sourceIndex}">${sourcePath}</option>', { sourceIndex: sourceIndex, source: sourcePath });
     }
 
-    function writeSource(writer: TextWriter, source: string, sourceIndex: number): void {
-        var sourcePath = path.resolve(pathRoot, source);
-        if (sourceMap.sourcesContent && sourceIndex < sourceMap.sourcesContent.length) {
-            var sourceText = sourceMap.sourcesContent[sourceIndex];
-        } else {
-            var sourceText = file.readFile(sourcePath);
-        }
-
-        var sourceLines = sourceText.split(/\r\n|\r|\n/g);
-        var sourceLineText = sourceLines[sourceLine];
-        var lastLineMapping: decoder.LineMapping;
+    function writeSource(writer: TextWriter, source: Source): void {
+        var sourcePath = source.url;
+        var sourceIndex = source.sourceIndex;
+        var sourceContent = parsedSourceMap.getSourceContent(sourceIndex);
+        var sourceLines = sourceContent.split(/\r\n|\r|\n/g);
+        var lastSourceColumn = 0;
+        var sourceLineContent: string;
+        var lastMappings: Mapping[];
 
         sourceLineCounts[sourceIndex] = sourceLines.length;
-
         var padSize = sourceLines.length.toString().length;
-        var mappingsForSource = lineMappings.filter(lineMapping => lineMapping.sourceIndex === sourceIndex);
-        mappingsForSource.sort((left, right) => (left.sourceLine - right.sourceLine) || (left.sourceColumn - right.sourceColumn));
 
         writer
             .write('<div class="source" data-source="${sourceIndex}">', { sourceIndex: sourceIndex })
@@ -169,22 +159,20 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
 
         for (var sourceLine = 0; sourceLine < sourceLines.length; sourceLine++) {
             writer.write("<span class='linenum'>${line}: </span>", { line: pad((sourceLine + 1).toString(), padSize) });
-            var lastSourceColumn: number = 0;
-            var lastMappings: decoder.LineMapping[] = undefined;
-            var sourceLineText = sourceLines[sourceLine];
-            var mappingsForSourceLine = mappingsForSource.filter(mapping => mapping.sourceLine === sourceLine);        
-            
-            for (var sourceColumn = 0; sourceColumn < sourceLineText.length ; sourceColumn++) {
-                var mappingsForSourceColumn = mappingsForSourceLine.filter(mapping => mapping.sourceColumn === sourceColumn);
-                if (mappingsForSourceColumn.length) {
+            var sourceLineContent = sourceLines[sourceLine];
+            for (var sourceColumn = 0; sourceColumn < sourceLineContent.length; sourceColumn++) {
+                var mappings = parsedSourceMap.getCandidateMappingsAtSourceLocation(source.sourceIndex, sourceLine, sourceColumn);
+                if (mappings.length) {
                     writePendingContent();
-                    lastMappings = mappingsForSourceColumn;
+                    lastMappings = mappings;
                     lastSourceColumn = sourceColumn;
                 }
             }
             
             writePendingContent();
-            writer.writeln();        
+            writer.writeln();
+            lastMappings = undefined;
+            lastSourceColumn = 0;
         }
 
         writer
@@ -194,30 +182,30 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
         function writePendingContent(): void {
             if (sourceColumn > lastSourceColumn) {
                 if (lastMappings) {
-                    writer.write('<span data-mapping="');
-                    
                     var color = "";
-                    for (var i = 0; i < lastMappings.length; i++) {
-                        var mapping = lastMappings[i];
-                        if (i > 0) {
-                            writer.write(' ');
-                        }
-
-                        writer.write('${id}', { id: mapping.id });
-                        if ("sourceIndex" in mapping) {
-                            color = getLineColorClass(mapping);
+                    for (var i = lastMappings.length - 1; i >= 0; i--) {
+                        if (lastMappings[i].source) {
+                            color = getLineColorClass(lastMappings[i]);
+                            break;
                         }
                     }
 
-                    writer.write('" class="mapping ${color}">', { color: color });
+                    writer
+                        .write('<span data-mapping="')
+                        .pipeEach(lastMappings, writeMappingIndex, ' ')
+                        .write('" class="mapping ${color}">', { color: color });
                 } else {
                     writer.write('<span class="text">');
                 }
 
-                writer.write(encode(sourceLineText.substring(lastSourceColumn, sourceColumn)));
+                writer.write(encode(sourceLineContent.substring(lastSourceColumn, sourceColumn)));
                 writer.write('</span>');
             }
         }  
+    }
+
+    function writeMappingIndex(writer: TextWriter, mapping: Mapping): void {
+        writer.write(String(mapping.mappingIndex));
     }
 
     function writeGeneratedPane(writer: TextWriter): void {
@@ -236,7 +224,7 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
 
     function writeGeneratedName(writer: TextWriter): void {
         writer
-            .writeln('<div class="generated-name">${generatedFile}</div>', { generatedFile: generatedFile });
+            .writeln('<div class="generated-name">${generatedFile}</div>', { generatedFile: parsedSourceMap.generatedFile });
     }
 
     function writeGenerated(writer: TextWriter): void {
@@ -250,11 +238,10 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
 
     function writeGeneratedLine(writer: TextWriter, generatedLineText: string, generatedLine: number): void {
         writer.write('<span class="linenum">${line}: </span>', { line: pad(String(generatedLine + 1), generatedPadSize) });
-        var mappingsForLine = lineMappings.filter(mapping => mapping.generatedLine === generatedLine);
-        var lastMapping: LineMapping = undefined;
+        var lastMapping: Mapping = undefined;
         var lastGeneratedColumn = 0;
         for (var generatedColumn = 0; generatedColumn < generatedLineText.length; generatedColumn++) {
-            var mappingForGeneratedColumn = mappingsForLine.filter(mapping => mapping.generatedColumn === generatedColumn)[0];
+            var mappingForGeneratedColumn = parsedSourceMap.getMappingAtGeneratedLocation(generatedLine, generatedColumn);
             if (mappingForGeneratedColumn) {
                 writePendingContent();
                 lastMapping = mappingForGeneratedColumn;
@@ -262,16 +249,14 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
             }
         }
 
-        lastMapping = undefined;
         writePendingContent();
         writer.writeln();
 
         function writePendingContent(): void {
             if (generatedColumn > lastGeneratedColumn) {
                 if (lastMapping) {
-                    writer.write('<span data-source="${sourceIndex}" data-mapping="${id}" class="mapping ${color}">', {
-                        sourceIndex: lastMapping.sourceIndex,
-                        id: lastMapping.id,
+                    writer.write('<span data-mapping="${id}" class="mapping ${color}">', {
+                        id: lastMapping.mappingIndex,
                         color: getLineColorClass(lastMapping)
                     });
                 } else {
@@ -305,48 +290,40 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
     }
 
     function writeMap(writer: TextWriter): void {
-        var mappingsPerLine = generatedLines
-            .map((_, generatedLine) => ({
-                generatedLine: generatedLine,
-                mappings: lineMappings
-                    .filter(mapping => mapping.generatedLine === generatedLine)
-                    .sort((a, b) => a.generatedColumn - b.generatedColumn)
-        }));
-
         writer
             .writeln('<div class="map">')
                 .indent()
-                .pipeEach(mappingsPerLine, writeMapLine)
+                .pipeEach(generatedLines, writeMapLine)
                 .dedent()
             .writeln('</div>');
     }
 
-    function writeMapLine(writer: TextWriter, mappingsForLine: { generatedLine: number; mappings: LineMapping[]; }): void {
+    function writeMapLine(writer: TextWriter, generatedLineContent: string, generatedLine: number): void {
+        var mappings = parsedSourceMap.getMappingsAtGeneratedLine(generatedLine);
         writer
             .write('<div class="line">')
-            .write('<span class="linenum">${line}: </span>', { line: pad(String(mappingsForLine.generatedLine + 1), generatedPadSize) })
-            .pipeEach(mappingsForLine.mappings, writeLineMapping)
+            .write('<span class="linenum">${line}: </span>', { line: pad(String(generatedLine + 1), generatedPadSize) })
+            .pipeEach(mappings, writeLineMapping)
             .writeln('</div>');
     }
 
-    function writeLineMapping(writer: TextWriter, lineMapping: LineMapping): void {
-        if ("sourceIndex" in lineMapping) {
+    function writeLineMapping(writer: TextWriter, mapping: Mapping): void {
+        if (mapping.source) {
             writer
                 .write('<span data-mapping="${id}" class="mapping ${color}">${generatedColumn}->${sourceIndex}:${sourceLine},${sourceColumn}</span>', {
-                    sourceIndex: lineMapping.sourceIndex,
-                    id: lineMapping.id,
-                    generatedColumn: lineMapping.generatedColumn + 1,
-                    sourceLine: lineMapping.sourceLine + 1,
-                    sourceColumn: lineMapping.sourceColumn + 1,
-                    color: getLineColorClass(lineMapping)
+                    sourceIndex: mapping.source.sourceIndex,
+                    id: mapping.mappingIndex,
+                    generatedColumn: mapping.generatedColumn + 1,
+                    sourceLine: mapping.sourceLine + 1,
+                    sourceColumn: mapping.sourceColumn + 1,
+                    color: getLineColorClass(mapping)
                 });
         } else {
             writer
                 .write('<span data-mapping="${id}" class="mapping ${color}">${generatedColumn}</span>', {
-                    sourceIndex: lineMapping.sourceIndex,
-                    id: lineMapping.id,
-                    generatedColumn: lineMapping.generatedColumn + 1,
-                    color: getLineColorClass(lineMapping)
+                    id: mapping.mappingIndex,
+                    generatedColumn: mapping.generatedColumn + 1,
+                    color: getLineColorClass(mapping)
                 });
         }
     }
@@ -383,6 +360,18 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
     }
 
     function writeRawMapJson(writer: TextWriter): void {
+        if (parsedSourceMap.isIndexMap) {
+            writeRawIndexMapJson(writer);
+        }
+        else {
+            writeRawSourceMapJson(writer, parsedSourceMap.getSourceMap(0));
+        }
+    }
+
+    function writeRawIndexMapJson(writer: TextWriter): void {
+    }
+
+    function writeRawSourceMapJson(writer: TextWriter, sourceMap: SourceMap): void {
         writer
             .writeln('{')
                 .indent()
@@ -396,20 +385,26 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
         writer.writeln(",");
     }
 
-    function writeRawMapJsonPair(writer: TextWriter, pair: [string, any]): void {
+    function writeRawMapJsonPair(writer: TextWriter, pair: [string, any, any]): void {
         var key = pair[0];
         var value = pair[1];
+        var obj = pair[2];
         writer.write('"${name}": ', { name: encode(key) });
         if (key === "sources") {
-            writer.pipeTo(writeRawMapJsonSources);
+            writer.pipeTo(writeRawMapJsonSources, obj);
         } else if (key === "mappings") {
-            writer.pipeTo(writeRawMapJsonMappings);
+            writer.pipeTo(writeRawMapJsonMappings, obj);
+        } else if (key === "sections") {
+            writer.pipeTo(writeRawMapJsonSections, obj);
         } else {
             writer.write(JSON.stringify(value, undefined, "  "));
         }
     }
 
-    function writeRawMapJsonSources(writer: TextWriter): void {
+    function writeRawMapJsonSections(writer: TextWriter, indexMap: IndexMap): void {
+    }
+
+    function writeRawMapJsonSources(writer: TextWriter, sourceMap: SourceMap): void {
         writer
             .writeln('[')
                 .indent()
@@ -422,8 +417,7 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
         writer.writeln('<span class="rawsource" data-source="${sourceIndex}">"${source}"</span>', { sourceIndex: sourceIndex, source: encode(source) });
     }
 
-    function writeRawMapJsonMappings(writer: TextWriter): void {
-        nextMappingId = 0;
+    function writeRawMapJsonMappings(writer: TextWriter, sourceMap: SourceMap): void {
         writer.write('"').pipeEach(sourceMap.mappings.split(";"), writeRawMapJsonMappingLine, ";").write('"');
     }
 
@@ -435,9 +429,9 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
 
     function writeRawMapJsonMappingSegment(writer: TextWriter, segment: string): void {
         if (segment) {
-            var mapping = lineMappings[nextMappingId++];
+            var mapping = parsedSourceMap.getMapping(nextMappingIndex++);
             writer.write('<span data-mapping="${id}" class="mapping ${color}">${text}</span>', {
-                id: mapping.id,
+                id: mapping.mappingIndex,
                 text: encode(segment),
                 color: getLineColorClass(mapping),
             });
@@ -453,17 +447,17 @@ export function outline(outFile: string, generatedFile: string, mapFile: string,
         return text.replace(/&(?!.{1,6};)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     }
 
-    function entries(obj: any): [string, any][] {
-        var entries: [string, any][] = [];
+    function entries(obj: any): [string, any, any][] {
+        var entries: [string, any, any][] = [];
         for (var p in obj) {
-            entries.push([p, obj[p]]);
+            entries.push([p, obj[p], obj]);
         }
 
         return entries;
     }
 
-    function getLineColorClass(mapping: LineMapping): string {
-        if ("sourceIndex" in mapping) {
+    function getLineColorClass(mapping: Mapping): string {
+        if (mapping.source) {
             var color = generatedLineColors[mapping.generatedLine] % 6;
             return "linecolor" + color;
         }
