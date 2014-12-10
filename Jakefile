@@ -6,7 +6,7 @@ var sourcemapModules = [
   "lib/textwriter",
   "lib/decoder",
   "lib/outliner",
-  "lib/file",
+  "lib/utils",
   "lib/package",
   "bin/cli",
 ]
