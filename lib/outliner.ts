@@ -138,13 +138,13 @@ export function outline(mapFile: string, outFile: string): void {
         var sourcePath = source.url;
         var sourceIndex = source.sourceIndex;
         writer
-            .writeln('<option value="${sourceIndex}">${sourcePath}</option>', { sourceIndex: sourceIndex, source: sourcePath });
+            .writeln('<option value="${sourceIndex}">${sourcePath}</option>', { sourceIndex: sourceIndex, sourcePath: sourcePath });
     }
 
     function writeSource(writer: TextWriter, source: Source): void {
         var sourcePath = source.url;
         var sourceIndex = source.sourceIndex;
-        var sourceContent = parsedSourceMap.getSourceContent(sourceIndex);
+        var sourceContent = parsedSourceMap.getSourceContent(sourceIndex) || "";
         var sourceLines = sourceContent.split(/\r\n|\r|\n/g);
         var lastSourceColumn = 0;
         var sourceLineContent: string;
@@ -385,6 +385,10 @@ export function outline(mapFile: string, outFile: string): void {
         writer.writeln(",");
     }
 
+    function writeLeadingOrTrailingNewline(writer: TextWriter): void {
+        writer.writeln();
+    }
+
     function writeRawMapJsonPair(writer: TextWriter, pair: [string, any, any]): void {
         var key = pair[0];
         var value = pair[1];
@@ -406,15 +410,15 @@ export function outline(mapFile: string, outFile: string): void {
 
     function writeRawMapJsonSources(writer: TextWriter, sourceMap: SourceMap): void {
         writer
-            .writeln('[')
+            .write('[')
                 .indent()
-                .pipeEach(sourceMap.sources, writeRawMapJsonSource)
+                .pipeEach(sourceMap.sources, writeRawMapJsonSource, writeJsonComma, writeLeadingOrTrailingNewline, writeLeadingOrTrailingNewline)
                 .dedent()
             .write(']');
     }
 
     function writeRawMapJsonSource(writer: TextWriter, source: string, sourceIndex: number): void {
-        writer.writeln('<span class="rawsource" data-source="${sourceIndex}">"${source}"</span>', { sourceIndex: sourceIndex, source: encode(source) });
+        writer.write('<span class="rawsource" data-source="${sourceIndex}">"${source}"</span>', { sourceIndex: sourceIndex, source: encode(source) });
     }
 
     function writeRawMapJsonMappings(writer: TextWriter, sourceMap: SourceMap): void {

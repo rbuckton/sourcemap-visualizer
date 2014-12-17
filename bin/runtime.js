@@ -65,7 +65,6 @@ var currentGeneratedMappings;
 var currentSourceMappings;
 var currentMapMappings;
 var currentRawmapMappings;
-var currentSource;
 document.addEventListener("mouseover", function (e) {
     var element = e.target;
     if (element.classList.contains("mapping")) {
@@ -235,6 +234,7 @@ function setMappings(mappingIds) {
 }
 function setSource(sourceIndex) {
     var source = sourceFileMap.get(sourceIndex);
+    var currentSource = document.querySelector("div.source.selected");
     if (source !== currentSource) {
         if (currentSource) {
             currentSource.classList.remove("selected");

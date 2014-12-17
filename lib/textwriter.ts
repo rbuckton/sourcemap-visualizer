@@ -8,7 +8,9 @@ export interface TextWriter {
     dedent(): TextWriter;
     pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void): TextWriter;
     pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void, separator: string): TextWriter;
+    pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void, separator: string, before: string, after: string): TextWriter;
     pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void, separator: (writer: TextWriter) => void): TextWriter;
+    pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void, separator: (writer: TextWriter) => void, before: (writer: TextWriter) => void, after: (writer: TextWriter) => void): TextWriter;
     pipeTo(callback: (writer: TextWriter) => void): TextWriter;
     pipeTo<T0>(callback: (writer: TextWriter, arg0: T0) => void, arg0: T0): TextWriter;
     suspendIndenting(): TextWriter;
@@ -113,8 +115,16 @@ export function create(text?: string): TextWriter {
         }
     }
 
-    function pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void, separator?: any): TextWriter {
+    function pipeEach<T>(elements: T[], callback: (writer: TextWriter, element: T, index: number) => void, separator?: any, before?: any, after?: any): TextWriter {
         for (var i = 0; i < elements.length; i++) {
+            if (i === 0) {
+                if (typeof before === "function") {
+                    before(this);
+                }
+                else if (typeof before === "string") {
+                    before(separator);
+                }
+            }
             if (i > 0) {
                 if (typeof separator === "function") {
                     separator(this);
@@ -125,7 +135,17 @@ export function create(text?: string): TextWriter {
             }
 
             callback(this, elements[i], i);
+
+            if (i === elements.length - 1) {
+                if (typeof after === "function") {
+                    after(this);
+                }
+                else if (typeof after === "string") {
+                    write(after);
+                }
+            }
         }
+
         return this;
     }
 }

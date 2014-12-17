@@ -4,6 +4,8 @@ import url = require('url');
 import path = require('path');
 import os = require('os');
 
+require('source-map-support').install();
+
 function getEncoding(buffer: Buffer): string {
     if (buffer.length >= 2) {
         var bom0 = buffer[0];

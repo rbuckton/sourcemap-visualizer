@@ -114,7 +114,7 @@ var currentGeneratedMappings: Set<HTMLElement>;
 var currentSourceMappings: Set<HTMLElement>;
 var currentMapMappings: Set<HTMLElement>;
 var currentRawmapMappings: Set<HTMLElement>;
-var currentSource: HTMLElement;
+
 document.addEventListener("mouseover", e => {
   var element = <HTMLElement>e.target;
   if (element.classList.contains("mapping")) {
@@ -298,6 +298,7 @@ function setMappings(mappingIds?: string[]): void {
 
 function setSource(sourceIndex: string): void {
   var source = sourceFileMap.get(sourceIndex);
+  var currentSource = <HTMLElement>document.querySelector("div.source.selected");
   if (source !== currentSource) {
     if (currentSource) {
       currentSource.classList.remove("selected");

@@ -4,6 +4,7 @@ import os = require('os');
 import pkg = require('../lib/package');
 import outliner = require('../lib/outliner');
 
+
 interface ParsedArguments {
     sourceMapFile?: string;
     outFile?: string;

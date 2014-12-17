@@ -421,8 +421,6 @@ export function decode(mapFile: string): ParsedSourceMap {
         if (sourceMap.names) {
             lastSectionNameOffset += sourceMap.names.length;
         }
-
-        lastSectionSourceOffset += sourceMap.sources.length;
     }
 
     function decodeSectionScopes(section: ParsedSection, sourceMap: SourceMap): void {
@@ -639,14 +637,15 @@ export function decode(mapFile: string): ParsedSourceMap {
     }
 
     function getSectionForName(nameIndex: number): ParsedSection {
-        var parsedSection: ParsedSection;
-        for (var sectionIndex = 0; sectionIndex < sectionNameOffsets.length; sectionIndex++) {
+        var parsedSection: ParsedSection = sections[0];
+        for (var sectionIndex = 1; sectionIndex < sectionNameOffsets.length; sectionIndex++) {
             if (sectionNameOffsets[sectionIndex] < nameIndex) {
                 parsedSection = sections[sectionIndex];
             } else {
-                return parsedSection;
+                break;
             }
         }
+        return parsedSection;
     }
 
     function getNames(): Name[] {
@@ -703,13 +702,14 @@ export function decode(mapFile: string): ParsedSourceMap {
 
     function getSectionForSource(sourceIndex: number): ParsedSection {
         var parsedSection = sections[0];
-        for (var sectionIndex = 0; sectionIndex < sectionSourceOffsets.length; sectionIndex++) {
+        for (var sectionIndex = 1; sectionIndex < sectionSourceOffsets.length; sectionIndex++) {
             if (sectionSourceOffsets[sectionIndex] < sourceIndex) {
                 parsedSection = sections[sectionIndex];
             } else {
-                return parsedSection;
+                break;
             }
         }
+        return parsedSection;
     }
 
     function getSources(): Source[] {
@@ -752,11 +752,14 @@ export function decode(mapFile: string): ParsedSourceMap {
         var sourceMap = sectionMaps[sectionIndex];
         if (sourceMap && sourceMap.sources && sectionSourceIndex < sourceMap.sources.length) {
             var url = sourceMap.sources[sectionSourceIndex];
-            if (sourceMap.sourceRoot) {
-                url = utils.resolve(sourceMap.sourceRoot, url);
+            if (sourceMap.sourcesContent && typeof sourceMap.sourcesContent[sectionSourceIndex] !== "string") {
+                if (sourceMap.sourceRoot) {
+                    url = utils.resolve(sourceMap.sourceRoot, url);
+                }
+
+                url = utils.resolve(mapRoot, url);
             }
 
-            url = utils.resolve(mapRoot, url);
             var source: Source = {
                 sourceIndex: sourceIndex,
                 sectionIndex: sectionIndex,
@@ -791,15 +794,15 @@ export function decode(mapFile: string): ParsedSourceMap {
         if (sourceMap && sourceMap.sources && sectionSourceIndex < sourceMap.sources.length) {
             var sourceContent: string;
             if (sourceMap.sourcesContent && sourceIndex < sourceMap.sourcesContent.length) {
-                sourceContent = sourceMap.sourcesContent[sourceIndex];
-                sourcesContent[sourceIndex] = sourceContent;
-            } else {
+                sourceContent = sourceMap.sourcesContent[sectionSourceIndex];
+            }
+
+            if (typeof sourceContent !== "string") {
                 var source = getSourceInSection(sectionIndex, sectionSourceIndex);
                 if (source) {
                     try {
                         sourceContent = utils.readFile(source.url);
                     } catch (e) {
-                        sourceContent = "";
                     }
                 }
             }
