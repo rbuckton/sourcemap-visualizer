@@ -19,7 +19,7 @@
   "devDependencies": {
     "jake": "latest",
     "typescript": "latest",
-    "source-map-support": "latest"
+    "source-map-support": "latest",
   },
   "engines": {
     "node": ">=0.8.0"
