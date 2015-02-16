@@ -65,6 +65,7 @@ export function outline(mapFile: string, outFile: string): void {
         writer
             .writeln('<head>')
                 .indent()
+                .writeln('<meta http-equiv="X-UA-Compatible" content="IE=edge" />')
                 .writeln('<style>')
                     .suspendIndenting()
                     .writeln(utils.readFile(stylePath))
